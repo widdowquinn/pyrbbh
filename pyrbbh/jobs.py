@@ -46,6 +46,7 @@ class Job:
     self.scriptPath = None           # Will hold path to the script file
     self.dependencies = []           # List of jobs that must be submitted
                                      # before this job may be submitted
+    self.children = []               # List of jobs that depend on this job
     self.submitted = False           # Flag indicating whether the job has
                                      # already been submitted
 
@@ -56,12 +57,14 @@ class Job:
     - job     Job to be added to the Job's dependency list
     """
     self.dependencies.append(job)
+    job.children.append(self)
 
   def remove_dependency(self, job):
     """Remove the passed job from this Job's dependency list
 
     - job     Job to be removed from the Job's dependency list
     """
+    job.children.remove(self)
     self.dependencies.remove(job)
 
   def wait(self, interval=SGE_WAIT):

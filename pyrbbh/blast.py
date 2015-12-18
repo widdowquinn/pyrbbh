@@ -127,12 +127,12 @@ def make_blastp_jobs(infiles, outdir, blastp_exe, jobprefix, dbjobs):
     for idx, infile1 in enumerate(infiles):
         fname1 = os.path.split(infile1)[-1]  # strip directory
         fstem1 = os.path.splitext(fname1)[0]  # strip extension
-        dbname1 = os.path.join(outdir, fstem1)
+        dbname1 = os.path.join(outdir, fname1)
         for infile2 in infiles[idx+1:]:
             jobnum += 1
             fname2 = os.path.split(infile2)[-1]  # strip directory
             fstem2 = os.path.splitext(fname2)[0]  # strip extension
-            dbname2 = os.path.join(outdir, fstem2)
+            dbname2 = os.path.join(outdir, fname2)
             cmd1 = construct_blastp_cmd(infile1, dbname2, outdir, blastp_exe)
             cmd2 = construct_blastp_cmd(infile2, dbname1, outdir, blastp_exe)
             job1 = jobs.Job("%s_query_%06d_fwd" % (jobprefix, jobnum), cmd1)
@@ -151,13 +151,33 @@ def construct_blastp_cmd(qfile, dbname, outdir, blastp_exe):
 
     Output filename is formatted 'qstem_vs_dbstem.out'
 
+    The BLASTP command writes a tabular format output file. The formatting
+    string returns the following information in columns:
+
+    qseqid - query sequence ID
+    sseqid - subject sequence ID
+    qlen - query sequence length
+    slen - subject sequence length
+    bitscore - bitscore of HSP match
+    length - length of HSP match
+    nident - number of identical matches in HSP
+    pident - percentage identity of HSP match (should = nident/length)
+    qcovhsp - query coverage per HSP
+    qcovs - query coverage per subject
+    qstart - HSP start in query
+    qend - HSP end in query
+    sstart - HSP start in subject
+    send - HSP start in subject
+
     >>> construct_blastp_cmd('../tests/seqdata/infile1.fasta', \
-'../tests/output/infile2', '../tests/output', 'blastp')
-    'blastp -out ../tests/output/infile1_vs_infile2.xml -query \
-../tests/seqdata/infile1.fasta -db ../tests/output/infile2 -outfmt 5'
+'../tests/output/infile2.fasta', '../tests/output', 'blastp')
+    'blastp -out ../tests/output/infile1_vs_infile2.tab -query \
+../tests/seqdata/infile1.fasta -db ../tests/output/infile2.fasta -outfmt 6'
     """
     qstem = os.path.splitext(os.path.split(qfile)[-1])[0]
     dbstem = os.path.splitext(os.path.split(dbname)[-1])[0]
     prefix = os.path.join(outdir, '%s_vs_%s' % (qstem, dbstem))
-    cmd = "{0} -out {1}.xml -query {2} -db {3} -outfmt 5"
-    return cmd.format(blastp_exe, prefix, qfile, dbname)
+    formatstr = "'6 qseqid sseqid qlen slen bitscore length nident pident \
+qcovhsp qcovs qstart qend sstart send'"
+    cmd = "{0} -out {1}.tab -query {2} -db {3} -outfmt {4}"
+    return cmd.format(blastp_exe, prefix, qfile, dbname, formatstr)

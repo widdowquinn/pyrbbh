@@ -6,7 +6,7 @@ import os
 import sys
 import time
 
-from pyrbbh import blast, config, io
+from pyrbbh import blast, config, io, mp
 
 class PyRBBH(object):
     """pyrbbh module script"""
@@ -93,6 +93,11 @@ The most commonly used commands are:
         # Get BLAST jobs
         self.__make_rbbh_jobs()
 
+        # Despatch to appropriate method by scheduler
+        despatch = {'mp': self.__mp_run_rbbh,
+                    'SGE': self.__sge_run_rbbh}
+        despatch[self._args.scheduler]()
+
 
     def __get_input_files(self):
         """Get list of input FASTA files."""
@@ -112,6 +117,42 @@ The most commonly used commands are:
                                            self._args.jobprefix)
         self._logger.info("Created %d jobs" % len(self._jobs))
 
+
+    def __mp_run_rbbh(self):
+        """Run RBBH jobs with multiprocessing.
+        
+        RBBH jobs exist on two levels of dependency. Database creation jobs
+        do not have any dependencies, but the query jobs do - but only on
+        database creation. This allows us to split the two task types up into
+        distinct asynchronous pools, so we can pass the database creation out
+        to all cores first, then do the same with query jobs.
+
+        We make two sets of commands to run.
+        """
+        self._logger.info("Using multiprocessing to schedule jobs")
+        
+        # Create sets of commands to run
+        cmdsets = mp.create_cmdsets(self._jobs, self._logger)
+        self._logger.info("%d sets of commands to be scheduled" % len(cmdsets))
+        for idx, cmdset in enumerate(cmdsets):
+            self._logger.info("Running Level %d pool: %d commands" %
+                              (idx, len(cmdset)))
+            for cmd in cmdset:
+                self._logger.info("\t%s" % cmd)
+            t0 = time.time()
+            cumretval = mp.mp_run_cmdset(cmdset)
+            if cumretval:
+                self._logger.error("Pool returned nonzero - errors (exiting)")
+                sys.exit(1)
+            else:
+                self._logger.info("Pool complete, no errors indicated")
+            self._logger.info("Time to run pool: %.02fs" % (time.time() - t0))
+
+
+        
+
+    def __sge_run_rbbh(self):
+        raise NotImplementedError
 
     def __validate_paths(self):
         """Exits if the input/output paths have problems. Creates output

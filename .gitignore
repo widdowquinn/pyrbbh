@@ -2,6 +2,9 @@
 *~
 *#
 
+# Test output
+tests/output/*
+
 # Python compiled files
 *.pyc
 

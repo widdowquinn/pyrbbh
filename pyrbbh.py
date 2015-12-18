@@ -2,10 +2,11 @@
 
 import argparse
 import logging
+import os
 import sys
 import time
 
-from pyrbbh import config
+from pyrbbh import blast, config, io
 
 class PyRBBH(object):
     """pyrbbh module script"""
@@ -47,6 +48,13 @@ The most commonly used commands are:
         self._parser.add_argument('-l', '--logfile', dest='logfile',
                                   action='store', default=None,
                                   help='Path to logfile')
+        self._parser.add_argument('-f', '--force', dest='force',
+                                  action='store_true', default=False,
+                                  help='Force output overwrite')
+        self._parser.add_argument('-s', '--scheduler', dest='scheduler',
+                                  action='store', default='mp',
+                                  type=str, choices=['mp', 'SGE'],
+                                  help='Scheduler')
 
 
     def rbbh(self):
@@ -67,10 +75,75 @@ The most commonly used commands are:
                                   action='store',
                                   default=config.BLASTDB_DEFAULT,
                                   help='Path to makeblastdb executable')
+        self._parser.add_argument('--jobprefix', dest='jobprefix',
+                                  action='store',
+                                  default="PyRBBH_%s" % str(int(time.time())),
+                                  help='Prefix for jobs in this run')
         self._args = self._parser.parse_args(sys.argv[2:])
         
         # Set up logger
         self.__start_logger()
+
+        # Validate input/output locations
+        self.__validate_paths()
+
+        # Process input files
+        self.__get_input_files()
+
+        # Get BLAST jobs
+        self.__make_rbbh_jobs()
+
+
+    def __get_input_files(self):
+        """Get list of input FASTA files."""
+        self._logger.info("Processing %s for input FASTA files" %
+                          self._args.indirname)
+        self._infiles = io.get_fasta_files(self._args.indirname)
+        self._logger.info("Found %d FASTA files" % len(self._infiles))
+
+
+    def __make_rbbh_jobs(self):
+        """Make dependency graph of RBBH BLAST jobs."""
+        self._logger.info("Creating BLAST jobs for RBBH")
+        self._jobs = blast.make_blast_jobs(self._infiles,
+                                           self._args.outdirname,
+                                           self._args.blastp_exe,
+                                           self._args.blastdb_exe,
+                                           self._args.jobprefix)
+        self._logger.info("Created %d jobs" % len(self._jobs))
+
+
+    def __validate_paths(self):
+        """Exits if the input/output paths have problems. Creates output
+        directory if doesn't already exist.
+        """
+        # Input directory path invalid
+        if not os.path.isdir(self._args.indirname):
+            self._logger.error("%s is not a valid directory path (exiting)" % 
+                               self._args.indirname)
+            sys.exit(1)
+        # Output directory already exists
+        if os.path.isdir(self._args.outdirname):
+            self._logger.warning("Output directory %s already exists" % 
+                                 self._args.outdirname)
+            if not self._args.force:
+                self._logger.error("Will not overwrite output in %s (exiting)" %
+                                   self._args.outdirname)
+                sys.exit(1)
+            else:
+                self._logger.warning("Will overwrite output in %s" % 
+                                     self._args.outdirname)
+        else:
+            try:  # Make the directory recursively
+                self._logger.info("Creating new directory %s" %
+                                  self._args.outdirname)
+                os.makedirs(self._args.outdirname)
+                self._logger.info("New directory %s created" %
+                                  self._args.outdirname)                
+            except OSError:
+                self._logger.error(last_exception())
+                sys.exit(1)
+        
 
 
     def __start_logger(self):

@@ -7,7 +7,7 @@
 # Please see the LICENSE file that should have been included as part of
 # this package.
 
-from config import SGE_WAIT
+from .config import SGE_WAIT
 
 # The Job class describes a single command-line job, with dependencies (jobs
 # that must be run first.

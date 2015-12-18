@@ -1,4 +1,4 @@
-# Copyright 2015-2015 The James Hutton Institute
+# Copyright 2015-2016 The James Hutton Institute
 # Author: Leighton Pritchard
 #
 # blast.py 
@@ -13,9 +13,9 @@
 import os
 import time
 
-from config import BLASTP_DEFAULT, BLASTDB_DEFAULT
+from .config import BLASTP_DEFAULT, BLASTDB_DEFAULT
 
-import jobs
+from . import jobs
 
 # Make a dependency graph of BLAST database and query jobs
 def make_blast_jobs(infiles, outdir,
@@ -40,9 +40,10 @@ def make_blast_jobs(infiles, outdir,
     - jobprefix - a string to prefix job IDs if run on SGE scheduler
     """
     # Create dictionary of database jobs, keyed by filestem
-    dbjobs = make_blastdb_jobs(infiles, blastdb_exe, jobprefix)
+    dbjobs = make_blastdb_jobs(infiles, outdir, blastdb_exe, jobprefix)
     # Create list of BLAST query jobs
-    queryjobs = make_blastp_jobs(infiles, blastp_exe, jobprefix, dbjobs)
+    queryjobs = make_blastp_jobs(infiles, outdir, blastp_exe, jobprefix, dbjobs)
+    return list(dbjobs.values()) + queryjobs
     
 
 # Make a dictionary of makeblastdb jobs

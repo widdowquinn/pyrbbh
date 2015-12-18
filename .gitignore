@@ -1,0 +1,9 @@
+# Temp files
+*~
+*#
+
+# Python compiled files
+*.pyc
+
+# Mac files
+.DS_Store
